@@ -174,6 +174,7 @@
       </div>
 
       <div class="music-row">
+        <audio id="bgm" src="assets/chunjie-xuqu.mp3" loop autoplay preload="auto"></audio>
         <button class="music-btn" id="musicBtn" type="button" aria-pressed="false" aria-label="播放或暂停《春节序曲》">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M9 18.5V5.8L21 3.5v12.7" stroke="#ffd873" stroke-width="1.8" stroke-linejoin="round"/>
@@ -222,238 +223,67 @@
     </script>
 
     <script>
-      // ===== 《春节序曲》（李焕之）第一主题主旋律：Web Audio 合成演奏，无版权录音、无音频文件 =====
+      // ===== 配乐：用户提供的《春节序曲》原录音 MP3，循环播放 =====
       (function () {
-        var STEP = 0.21; // 八分音符时长，2/4 拍秧歌节奏，欢快热烈
-        // 《春节序曲》第一主题主旋律（C 大调），按原曲音符编配
-        // 每项为 [MIDI 音高, 时值（以八分音符计）]，简谱对照：
-        // 3 5 6 5 | 3 2 1 2 | 3 - 2 3 | 5 - 3 - |
-        // 5 6 1' 6 | 5 3 2 3 | 5 - 3 - | 2 - 3 - |
-        // 3 5 6 5 | 3 2 1 2 | 3 - 2 3 | 2 3 2 1 | 6（低）1 - -
-        var THEME = [
-          [76,1],[79,1],[81,1],[79,1],
-          [76,1],[74,1],[72,1],[74,1],
-          [76,2],[74,1],[76,1],
-          [79,2],[76,2],
-          [79,1],[81,1],[84,1],[81,1],
-          [79,1],[76,1],[74,1],[76,1],
-          [79,2],[76,2],
-          [74,2],[76,2],
-          [76,1],[79,1],[81,1],[79,1],
-          [76,1],[74,1],[72,1],[74,1],
-          [76,2],[74,1],[76,1],
-          [74,1],[76,1],[74,1],[72,1],
-          [69,1],[72,3]
-        ];
-        // 展开成逐八分音符的步进表：起始步记音高与时值，延续步记 -1
-        var MELODY = [];
-        var NOTE_LEN = [];
-        (function () {
-          for (var i = 0; i < THEME.length; i++) {
-            MELODY.push(THEME[i][0]); NOTE_LEN.push(THEME[i][1]);
-            for (var j = 1; j < THEME[i][1]; j++) { MELODY.push(-1); NOTE_LEN.push(0); }
-          }
-        })();
-        // 每小节（4 个八分音符）和弦根音（MIDI）：C、G 交替的秧歌伴奏型
-        var BASS_ROOT = [48, 43, 48, 43, 48, 43, 48, 43, 48, 43, 48, 43, 48];
-
-        var ctx = null, master = null;
-        var wantPlay = true;      // 页面打开即默认要播放
-        var schedulerTimer = null;
-        var nextTime = 0, step = 0;
-        var resumePending = false;
-
+        var audio = document.getElementById("bgm");
         var btn = document.getElementById("musicBtn");
         var label = document.getElementById("musicLabel");
+        var userPaused = false;
 
-        function freq(midi) { return 440 * Math.pow(2, (midi - 69) / 12); }
-
-        function ensureCtx() {
-          if (ctx) return;
-          var AC = window.AudioContext || window.webkitAudioContext;
-          if (!AC) return;
-          ctx = new AC();
-          master = ctx.createGain();
-          master.gain.value = 0.5;
-          master.connect(ctx.destination);
-        }
-
-        // 主旋律音色：锯齿 + 微失谐方波过低通，模拟管乐齐奏的明亮音头
-        function lead(midi, t, lenSteps) {
-          var dur = Math.max(0.16, lenSteps * STEP * 0.96);
-          var f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 2300; f.Q.value = 0.5;
-          var g = ctx.createGain();
-          g.gain.setValueAtTime(0.0001, t);
-          g.gain.exponentialRampToValueAtTime(0.32, t + 0.02);
-          g.gain.setValueAtTime(0.32, t + Math.max(0.04, dur - 0.05));
-          g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-          var o1 = ctx.createOscillator(); o1.type = "sawtooth"; o1.frequency.value = freq(midi);
-          var o2 = ctx.createOscillator(); o2.type = "square"; o2.frequency.value = freq(midi); o2.detune.value = 7;
-          var g2 = ctx.createGain(); g2.gain.value = 0.35;
-          o1.connect(f); o2.connect(g2); g2.connect(f); f.connect(g); g.connect(master);
-          o1.start(t); o2.start(t); o1.stop(t + dur + 0.05); o2.stop(t + dur + 0.05);
-        }
-
-        // 锣：多组泛音叠加的金属敲击声，乐句开头与结尾加重
-        function gong(t) {
-          var partials = [1, 1.47, 2.09, 2.94, 3.91];
-          for (var i = 0; i < partials.length; i++) {
-            var o = ctx.createOscillator(), g = ctx.createGain();
-            o.type = "sine"; o.frequency.value = 196 * partials[i];
-            g.gain.setValueAtTime(0.0001, t);
-            g.gain.exponentialRampToValueAtTime(0.15 / (i + 1), t + 0.01);
-            g.gain.exponentialRampToValueAtTime(0.0001, t + 0.9);
-            o.connect(g); g.connect(master);
-            o.start(t); o.stop(t + 1);
-          }
-        }
-
-        // 低音
-        function bass(midi, t) {
-          var o = ctx.createOscillator(), g = ctx.createGain();
-          o.type = "sine"; o.frequency.value = freq(midi);
-          g.gain.setValueAtTime(0.0001, t);
-          g.gain.exponentialRampToValueAtTime(0.4, t + 0.02);
-          g.gain.exponentialRampToValueAtTime(0.0001, t + 0.42);
-          o.connect(g); g.connect(master);
-          o.start(t); o.stop(t + 0.48);
-        }
-
-        // 鼓点：滤波噪声短促一击
-        function drum(t, vol, freqCut) {
-          var len = Math.floor(ctx.sampleRate * 0.09);
-          var buf = ctx.createBuffer(1, len, ctx.sampleRate);
-          var data = buf.getChannelData(0);
-          for (var i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
-          var src = ctx.createBufferSource(); src.buffer = buf;
-          var f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = freqCut;
-          var g = ctx.createGain(); g.gain.value = vol;
-          src.connect(f); f.connect(g); g.connect(master);
-          src.start(t);
-        }
-
-        function scheduleStep(s, t) {
-          var m = MELODY[s];
-          if (m > 0) lead(m, t, NOTE_LEN[s]);
-          var pos = s % 4, bar = Math.floor(s / 4); // 每小节 4 个八分音符
-          if (pos === 0) bass(BASS_ROOT[bar], t);
-          if (pos === 2) bass(BASS_ROOT[bar] + 7, t);
-          // 锣鼓点：堂鼓敲强拍，钹（高频噪声）敲后半拍，乐句头尾加锣
-          if (pos === 0 || pos === 2) drum(t, 0.5, 800);
-          else drum(t, 0.15, 6000);
-          if (pos === 0 && bar % 4 === 0) gong(t);
-          if (pos === 0 && bar === BASS_ROOT.length - 1) gong(t);
-        }
-
-        function scheduler() {
-          while (nextTime < ctx.currentTime + 0.15) {
-            scheduleStep(step, nextTime);
-            nextTime += STEP;
-            step = (step + 1) % MELODY.length;
-          }
-        }
-
-        // 真正能听到声音的条件：调度器在跑且上下文处于 running。
-        // 仅 ctx.state === "running" 不算数——调度器没启动时同样没声音，
-        // 旧逻辑据此显示「播放中」就是误报的来源。
-        function isAudible() {
-          return !!(wantPlay && ctx && ctx.state === "running" && schedulerTimer);
+        function isPlaying() {
+          return audio && !audio.paused && !audio.ended;
         }
 
         function reflectUI() {
-          var on = isAudible();
+          var on = isPlaying();
           btn.classList.toggle("playing", on);
           btn.setAttribute("aria-pressed", on ? "true" : "false");
           if (on) label.textContent = "春节序曲 · 播放中";
-          else if (wantPlay) label.textContent = "点一下播放春节序曲"; // 想播但被浏览器拦住/待解锁
+          else if (!userPaused) label.textContent = "点一下播放春节序曲";
           else label.textContent = "春节序曲";
         }
 
-        function startScheduler() {
-          if (schedulerTimer || !ctx || ctx.state !== "running") return;
-          nextTime = ctx.currentTime + 0.06;
-          step = 0;
-          schedulerTimer = setInterval(scheduler, 40);
-          scheduler(); // 立即排上第一批音符，不等第一个定时周期
-        }
-
-        function stopScheduler() {
-          if (schedulerTimer) { clearInterval(schedulerTimer); schedulerTimer = null; }
-        }
-
-        // resume() 是异步的：调用它时上下文还是 suspended，
-        // 必须等它真正切到 running 之后再启动调度器；
-        // 旧逻辑只在 resume 前检查了一次状态，调度器永远等不到启动。
-        function onCtxRunning() {
-          resumePending = false;
-          if (!wantPlay) return;
-          startScheduler();
-          reflectUI();
-        }
-
-        // 尝试开始播放：页面加载即调用；被浏览器拦截时等第一次触碰/点击自动重试
-        function tryStart() {
-          if (!wantPlay) return;
-          ensureCtx();
-          if (!ctx) { reflectUI(); return; }
-          if (ctx.state === "running") {
-            onCtxRunning();
-          } else if (!resumePending) {
-            resumePending = true;
-            try {
-              var p = ctx.resume();
-              if (p && p.then) {
-                p.then(function () {
-                  resumePending = false;
-                  // 部分浏览器 promise 兑现时 state 仍在切换，再兜底确认一次
-                  if (ctx.state === "running") onCtxRunning();
-                  else reflectUI();
-                }, function () { resumePending = false; reflectUI(); });
-              } else {
-                resumePending = false;
-              }
-            } catch (e) { resumePending = false; }
-            // 个别浏览器靠 statechange 事件通知切换成功
-            ctx.onstatechange = function () {
-              if (ctx.state === "running") onCtxRunning();
-              else reflectUI();
-            };
-          }
+        function tryPlay() {
+          if (!audio || userPaused) return;
+          try {
+            var p = audio.play();
+            if (p && p.then) {
+              p.then(function () { reflectUI(); }, function () { reflectUI(); });
+            }
+          } catch (e) {}
           reflectUI();
         }
 
         btn.addEventListener("click", function () {
-          // 若配乐还从没真正响过（自动播放被拦、还在等解锁），
-          // 这次点按钮就是那次「首次交互」，应把它当作开播手势，
-          // 不能当成开关切换把待播意图关掉——旧逻辑正是这样误关的。
-          if (wantPlay && !isAudible()) {
-            tryStart();
-            return;
-          }
-          wantPlay = !wantPlay;
-          if (wantPlay) {
-            tryStart();
-          } else if (ctx) {
-            stopScheduler();
-            ctx.suspend();
+          if (isPlaying()) {
+            userPaused = true;
+            audio.pause();
+          } else {
+            userPaused = false;
+            tryPlay();
           }
           reflectUI();
         });
 
+        audio.addEventListener("play", reflectUI);
+        audio.addEventListener("pause", reflectUI);
+        audio.addEventListener("playing", reflectUI);
+
         // 浏览器拦住自动播放时，用户在页面任意处第一次操作即自动开播
         ["pointerdown", "touchstart", "keydown"].forEach(function (ev) {
-          document.addEventListener(ev, function () { tryStart(); }, { passive: true });
+          document.addEventListener(ev, function () { tryPlay(); }, { passive: true });
         });
         document.addEventListener("visibilitychange", function () {
-          if (!document.hidden) tryStart();
+          if (!document.hidden) tryPlay();
         });
 
         if (document.readyState === "loading") {
-          document.addEventListener("DOMContentLoaded", tryStart);
+          document.addEventListener("DOMContentLoaded", tryPlay);
         } else {
-          tryStart();
+          tryPlay();
         }
-        window.addEventListener("load", tryStart);
+        window.addEventListener("load", tryPlay);
+        reflectUI();
       })();
     </script>
   </body>
