@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:," />
+    <title>2027除夕夜倒计时 · 距离除夕夜还有多久</title>
+    <meta name="description" content="距离2027年除夕夜（2月5日，星期五，晚上8点）还有多久？精确到秒的实时倒计时，打开就是最新数字。" />
+
+    <!-- 分享到 X / 推特时显示的链接卡片信息 -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="🧧 2027除夕夜倒计时" />
+    <meta name="twitter:description" content="距离2027年2月5日除夕夜晚上8点，精确到秒的实时倒计时。点开看现在还剩多少天。" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="🧧 2027除夕夜倒计时" />
+    <meta property="og:description" content="距离2027年2月5日除夕夜晚上8点，精确到秒的实时倒计时。点开看现在还剩多少天。" />
+    <meta property="og:locale" content="zh_CN" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700;900&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
+
+    <style>
+      button, [role="button"], select, summary, input:not([type="checkbox"], [type="radio"]) { min-height: 2rem; }
+      * { box-sizing: border-box; }
+
+      :root {
+        --bg: #7e0f16;
+        --bg-deep: #5f0a10;
+        --panel: #8f1620;
+        --panel-edge: #c9973f;
+        --ink: #fff6e3;
+        --ink-dim: #f3d9a4;
+        --gold: #f5c542;
+        --gold-soft: #ffd873;
+        --digit-bg: #4a060c;
+        --digit-edge: #a87b2d;
+        --accent: #ffdf8e;
+        --note-bg: rgba(0,0,0,.22);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #4d080e;
+          --bg-deep: #36050a;
+          --panel: #5f0e16;
+          --ink: #fdf1d7;
+          --ink-dim: #e8cd93;
+          --digit-bg: #2a0408;
+        }
+      }
+
+      html, body { margin: 0; padding: 0; }
+      body {
+        font-family: "Noto Sans SC", system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+        background:
+          radial-gradient(1100px 500px at 50% -120px, rgba(245,197,66,.20), transparent 60%),
+          linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%);
+        color: var(--ink);
+        min-height: 100vh;
+      }
+
+      .wrap { max-width: 880px; margin: 0 auto; padding: 20px 18px 56px; position: relative; }
+
+      /* ---------- 灯笼 ---------- */
+      .lanterns { display: flex; justify-content: space-between; padding: 0 6px; pointer-events: none; }
+      .lantern { width: 54px; transform-origin: top center; animation: sway 5.5s ease-in-out infinite; }
+      .lantern.right { animation-delay: -2.4s; }
+      @keyframes sway { 0%,100% { transform: rotate(2.4deg); } 50% { transform: rotate(-2.4deg); } }
+      @media (prefers-reduced-motion: reduce) { .lantern { animation: none; } }
+
+      /* ---------- 标题 ---------- */
+      header { text-align: center; margin-top: 6px; }
+      .year-line {
+        font-family: "Noto Serif SC", serif; font-weight: 700; letter-spacing: .35em;
+        color: var(--gold-soft); font-size: 15px; margin: 0 0 10px; text-indent: .35em;
+      }
+      h1 {
+        font-family: "Noto Serif SC", serif; font-weight: 900;
+        font-size: clamp(40px, 9vw, 68px); line-height: 1.15; margin: 0;
+        color: var(--ink); text-shadow: 0 3px 0 rgba(0,0,0,.25);
+      }
+      h1 .gold { color: var(--gold); }
+      .date-line { margin: 14px 0 0; font-size: clamp(15px, 3.6vw, 18px); color: var(--ink-dim); }
+      .date-line strong { color: var(--ink); font-weight: 700; }
+
+      /* ---------- 倒计时 ---------- */
+      .count {
+        display: grid; grid-template-columns: repeat(4, 1fr); gap: clamp(8px, 2.4vw, 16px);
+        margin: 34px auto 0; max-width: 720px;
+      }
+      .cell {
+        background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.14)), var(--digit-bg);
+        border: 1px solid var(--digit-edge);
+        border-radius: 14px;
+        padding: clamp(14px, 3.4vw, 26px) 4px clamp(10px, 2.4vw, 18px);
+        text-align: center;
+        box-shadow: 0 10px 24px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,223,142,.25);
+      }
+      .num {
+        font-size: clamp(38px, 11vw, 76px); font-weight: 700; line-height: 1;
+        font-variant-numeric: tabular-nums; letter-spacing: .01em; color: var(--accent);
+      }
+      .unit { margin-top: 8px; font-size: clamp(13px, 3vw, 16px); color: var(--ink-dim); letter-spacing: .3em; text-indent: .3em; }
+
+      .arrived { display: none; text-align: center; margin-top: 34px; }
+      .arrived .big { font-family: "Noto Serif SC", serif; font-weight: 900; font-size: clamp(34px, 8vw, 56px); color: var(--gold); }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+
+      <div class="lanterns" aria-hidden="true">
+        <svg class="lantern" viewBox="0 0 60 96" fill="none">
+          <line x1="30" y1="0" x2="30" y2="14" stroke="#f5c542" stroke-width="2"/>
+          <rect x="22" y="14" width="16" height="5" rx="1.5" fill="#f5c542"/>
+          <ellipse cx="30" cy="40" rx="21" ry="25" fill="#c22430" stroke="#f5c542" stroke-width="2"/>
+          <path d="M30 15 v50 M16 22 q-6 18 0 36 M44 22 q6 18 0 36" stroke="#f5c542" stroke-width="1.2" opacity=".65"/>
+          <text x="30" y="48" text-anchor="middle" font-size="17" fill="#ffd873" font-family="Noto Serif SC, serif" font-weight="700">福</text>
+          <rect x="22" y="65" width="16" height="5" rx="1.5" fill="#f5c542"/>
+          <path d="M24 70 v14 M30 70 v18 M36 70 v14" stroke="#f5c542" stroke-width="2"/>
+        </svg>
+        <svg class="lantern right" viewBox="0 0 60 96" fill="none">
+          <line x1="30" y1="0" x2="30" y2="14" stroke="#f5c542" stroke-width="2"/>
+          <rect x="22" y="14" width="16" height="5" rx="1.5" fill="#f5c542"/>
+          <ellipse cx="30" cy="40" rx="21" ry="25" fill="#c22430" stroke="#f5c542" stroke-width="2"/>
+          <path d="M30 15 v50 M16 22 q-6 18 0 36 M44 22 q6 18 0 36" stroke="#f5c542" stroke-width="1.2" opacity=".65"/>
+          <text x="30" y="48" text-anchor="middle" font-size="17" fill="#ffd873" font-family="Noto Serif SC, serif" font-weight="700">春</text>
+          <rect x="22" y="65" width="16" height="5" rx="1.5" fill="#f5c542"/>
+          <path d="M24 70 v14 M30 70 v18 M36 70 v14" stroke="#f5c542" stroke-width="2"/>
+        </svg>
+      </div>
+
+      <header>
+        <p class="year-line">二 零 二 七 · 丁 未 羊 年</p>
+        <h1>距离<span class="gold">除夕夜</span>还有</h1>
+        <p class="date-line">2027年除夕夜 · <strong>2月5日（星期五）晚上8点</strong></p>
+      </header>
+
+      <section class="count" id="countBox" aria-label="除夕夜倒计时">
+        <div class="cell"><div class="num" id="d">--</div><div class="unit">天</div></div>
+        <div class="cell"><div class="num" id="h">--</div><div class="unit">时</div></div>
+        <div class="cell"><div class="num" id="m">--</div><div class="unit">分</div></div>
+        <div class="cell"><div class="num" id="s">--</div><div class="unit">秒</div></div>
+      </section>
+
+      <div class="arrived" id="arrivedBox">
+        <div class="big">🎆 新年快乐！</div>
+      </div>
+    </div>
+
+    <script>
+      // 2027年除夕夜：2027-02-05 20:00 北京时间 = 2027-02-05T12:00:00Z
+      var TARGET = Date.UTC(2027, 1, 5, 12, 0, 0);
+
+      function pad(n) { return (n < 10 ? "0" : "") + n; }
+
+      function tick() {
+        var now = Date.now();
+        var diff = TARGET - now;
+        var arrived = diff <= 0;
+        if (arrived) diff = 0;
+
+        var totalSec = Math.floor(diff / 1000);
+        var d = Math.floor(totalSec / 86400);
+        var h = Math.floor((totalSec % 86400) / 3600);
+        var m = Math.floor((totalSec % 3600) / 60);
+        var s = totalSec % 60;
+
+        document.getElementById("d").textContent = d;
+        document.getElementById("h").textContent = pad(h);
+        document.getElementById("m").textContent = pad(m);
+        document.getElementById("s").textContent = pad(s);
+
+        document.getElementById("countBox").style.display = arrived ? "none" : "";
+        document.getElementById("arrivedBox").style.display = arrived ? "block" : "none";
+
+        document.title = arrived
+          ? "🎆 除夕夜到了 · 新年快乐"
+          : "2027除夕夜倒计时 · 还剩 " + d + " 天 " + pad(h) + ":" + pad(m) + ":" + pad(s);
+      }
+
+      tick();
+      setInterval(tick, 250);
+    </script>
+  </body>
+</html>
