@@ -105,6 +105,31 @@
 
       .arrived { display: none; text-align: center; margin-top: 34px; }
       .arrived .big { font-family: "Noto Serif SC", serif; font-weight: 900; font-size: clamp(34px, 8vw, 56px); color: var(--gold); }
+
+      /* ---------- 音乐开关 ---------- */
+      .music-row { text-align: center; margin-top: 30px; }
+      .music-btn {
+        display: inline-flex; align-items: center; gap: 9px;
+        font-family: inherit; font-size: 16px; font-weight: 500; letter-spacing: .12em;
+        color: var(--gold-soft);
+        background: rgba(0,0,0,.22);
+        border: 1px solid var(--panel-edge);
+        border-radius: 999px;
+        padding: 11px 26px 11px 22px;
+        cursor: pointer;
+        transition: background .2s, color .2s;
+      }
+      .music-btn:hover { background: rgba(0,0,0,.34); }
+      .music-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+      .music-btn svg { flex: none; }
+      .music-btn .bars { display: none; align-items: flex-end; gap: 2.5px; height: 14px; }
+      .music-btn .bars i { width: 3px; background: var(--gold); border-radius: 1px; animation: eq 0.9s ease-in-out infinite; }
+      .music-btn .bars i:nth-child(1) { height: 60%; }
+      .music-btn .bars i:nth-child(2) { height: 100%; animation-delay: -0.3s; }
+      .music-btn .bars i:nth-child(3) { height: 45%; animation-delay: -0.55s; }
+      @keyframes eq { 0%,100% { transform: scaleY(0.5); } 50% { transform: scaleY(1); } }
+      .music-btn.playing .bars { display: inline-flex; }
+      @media (prefers-reduced-motion: reduce) { .music-btn .bars i { animation: none; } }
     </style>
   </head>
   <body>
@@ -147,6 +172,18 @@
       <div class="arrived" id="arrivedBox">
         <div class="big">🎆 新年快乐！</div>
       </div>
+
+      <div class="music-row">
+        <button class="music-btn" id="musicBtn" type="button" aria-pressed="false" aria-label="播放或暂停春节背景音乐">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M9 18.5V5.8L21 3.5v12.7" stroke="#ffd873" stroke-width="1.8" stroke-linejoin="round"/>
+            <circle cx="6.5" cy="18.5" r="2.8" fill="#ffd873"/>
+            <circle cx="18.5" cy="16.2" r="2.8" fill="#ffd873"/>
+          </svg>
+          <span id="musicLabel">喜庆配乐</span>
+          <span class="bars" aria-hidden="true"><i></i><i></i><i></i></span>
+        </button>
+      </div>
     </div>
 
     <script>
@@ -182,6 +219,204 @@
 
       tick();
       setInterval(tick, 250);
+    </script>
+
+    <script>
+      // ===== 春节配乐：Web Audio 现场合成的原创五声音阶喜庆旋律，无版权录音、无音频文件 =====
+      (function () {
+        var STEP = 0.24; // 八分音符时长（约 125 BPM）
+        // 64 步主旋律（MIDI 音高，0 = 休止），宫调五声音阶，原创旋律循环
+        var MELODY = [
+          72,76,79,81, 79,76,74,76,
+          79,79,81,84, 81,79,76,0,
+          72,76,79,81, 79,76,74,74,
+          76,74,72,74, 72,0,76,74,
+          84,84,86,84, 81,79,81,79,
+          76,79,81,79, 76,74,76,74,
+          72,76,79,76, 74,72,74,69,
+          72,0,72,0, 76,74,72,0
+        ];
+        // 每小节低音根音（MIDI），在第 0、4 步奏根音、第 6 步奏五音
+        var BASS_ROOT = [48, 43, 45, 41, 48, 43, 45, 48];
+
+        var ctx = null, master = null;
+        var wantPlay = true;      // 页面打开即默认要播放
+        var schedulerTimer = null;
+        var nextTime = 0, step = 0;
+        var resumePending = false;
+
+        var btn = document.getElementById("musicBtn");
+        var label = document.getElementById("musicLabel");
+
+        function freq(midi) { return 440 * Math.pow(2, (midi - 69) / 12); }
+
+        function ensureCtx() {
+          if (ctx) return;
+          var AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return;
+          ctx = new AC();
+          master = ctx.createGain();
+          master.gain.value = 0.5;
+          master.connect(ctx.destination);
+        }
+
+        // 拨弦感主音
+        function pluck(midi, t) {
+          var o = ctx.createOscillator(), o2 = ctx.createOscillator(), g = ctx.createGain();
+          o.type = "triangle"; o.frequency.value = freq(midi);
+          o2.type = "sine"; o2.frequency.value = freq(midi) * 2;
+          var g2 = ctx.createGain(); g2.gain.value = 0.18;
+          g.gain.setValueAtTime(0.0001, t);
+          g.gain.exponentialRampToValueAtTime(0.55, t + 0.015);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + 0.34);
+          o.connect(g); o2.connect(g2); g2.connect(g); g.connect(master);
+          o.start(t); o2.start(t); o.stop(t + 0.4); o2.stop(t + 0.4);
+        }
+
+        // 低音
+        function bass(midi, t) {
+          var o = ctx.createOscillator(), g = ctx.createGain();
+          o.type = "sine"; o.frequency.value = freq(midi);
+          g.gain.setValueAtTime(0.0001, t);
+          g.gain.exponentialRampToValueAtTime(0.4, t + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + 0.42);
+          o.connect(g); g.connect(master);
+          o.start(t); o.stop(t + 0.48);
+        }
+
+        // 鼓点：滤波噪声短促一击
+        function drum(t, vol, freqCut) {
+          var len = Math.floor(ctx.sampleRate * 0.09);
+          var buf = ctx.createBuffer(1, len, ctx.sampleRate);
+          var data = buf.getChannelData(0);
+          for (var i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+          var src = ctx.createBufferSource(); src.buffer = buf;
+          var f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = freqCut;
+          var g = ctx.createGain(); g.gain.value = vol;
+          src.connect(f); f.connect(g); g.connect(master);
+          src.start(t);
+        }
+
+        function scheduleStep(s, t) {
+          var m = MELODY[s];
+          if (m) pluck(m, t);
+          var pos = s % 8, bar = Math.floor(s / 8);
+          if (pos === 0 || pos === 4) bass(BASS_ROOT[bar], t);
+          if (pos === 6) bass(BASS_ROOT[bar] + 7, t);
+          if (pos === 0 || pos === 4) drum(t, 0.5, 900);
+          else if (pos === 2 || pos === 6) drum(t, 0.22, 2400);
+        }
+
+        function scheduler() {
+          while (nextTime < ctx.currentTime + 0.15) {
+            scheduleStep(step, nextTime);
+            nextTime += STEP;
+            step = (step + 1) % MELODY.length;
+          }
+        }
+
+        // 真正能听到声音的条件：调度器在跑且上下文处于 running。
+        // 仅 ctx.state === "running" 不算数——调度器没启动时同样没声音，
+        // 旧逻辑据此显示「播放中」就是误报的来源。
+        function isAudible() {
+          return !!(wantPlay && ctx && ctx.state === "running" && schedulerTimer);
+        }
+
+        function reflectUI() {
+          var on = isAudible();
+          btn.classList.toggle("playing", on);
+          btn.setAttribute("aria-pressed", on ? "true" : "false");
+          if (on) label.textContent = "配乐播放中";
+          else if (wantPlay) label.textContent = "点一下播放配乐"; // 想播但被浏览器拦住/待解锁
+          else label.textContent = "喜庆配乐";
+        }
+
+        function startScheduler() {
+          if (schedulerTimer || !ctx || ctx.state !== "running") return;
+          nextTime = ctx.currentTime + 0.06;
+          step = 0;
+          schedulerTimer = setInterval(scheduler, 40);
+          scheduler(); // 立即排上第一批音符，不等第一个定时周期
+        }
+
+        function stopScheduler() {
+          if (schedulerTimer) { clearInterval(schedulerTimer); schedulerTimer = null; }
+        }
+
+        // resume() 是异步的：调用它时上下文还是 suspended，
+        // 必须等它真正切到 running 之后再启动调度器；
+        // 旧逻辑只在 resume 前检查了一次状态，调度器永远等不到启动。
+        function onCtxRunning() {
+          resumePending = false;
+          if (!wantPlay) return;
+          startScheduler();
+          reflectUI();
+        }
+
+        // 尝试开始播放：页面加载即调用；被浏览器拦截时等第一次触碰/点击自动重试
+        function tryStart() {
+          if (!wantPlay) return;
+          ensureCtx();
+          if (!ctx) { reflectUI(); return; }
+          if (ctx.state === "running") {
+            onCtxRunning();
+          } else if (!resumePending) {
+            resumePending = true;
+            try {
+              var p = ctx.resume();
+              if (p && p.then) {
+                p.then(function () {
+                  resumePending = false;
+                  // 部分浏览器 promise 兑现时 state 仍在切换，再兜底确认一次
+                  if (ctx.state === "running") onCtxRunning();
+                  else reflectUI();
+                }, function () { resumePending = false; reflectUI(); });
+              } else {
+                resumePending = false;
+              }
+            } catch (e) { resumePending = false; }
+            // 个别浏览器靠 statechange 事件通知切换成功
+            ctx.onstatechange = function () {
+              if (ctx.state === "running") onCtxRunning();
+              else reflectUI();
+            };
+          }
+          reflectUI();
+        }
+
+        btn.addEventListener("click", function () {
+          // 若配乐还从没真正响过（自动播放被拦、还在等解锁），
+          // 这次点按钮就是那次「首次交互」，应把它当作开播手势，
+          // 不能当成开关切换把待播意图关掉——旧逻辑正是这样误关的。
+          if (wantPlay && !isAudible()) {
+            tryStart();
+            return;
+          }
+          wantPlay = !wantPlay;
+          if (wantPlay) {
+            tryStart();
+          } else if (ctx) {
+            stopScheduler();
+            ctx.suspend();
+          }
+          reflectUI();
+        });
+
+        // 浏览器拦住自动播放时，用户在页面任意处第一次操作即自动开播
+        ["pointerdown", "touchstart", "keydown"].forEach(function (ev) {
+          document.addEventListener(ev, function () { tryStart(); }, { passive: true });
+        });
+        document.addEventListener("visibilitychange", function () {
+          if (!document.hidden) tryStart();
+        });
+
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", tryStart);
+        } else {
+          tryStart();
+        }
+        window.addEventListener("load", tryStart);
+      })();
     </script>
   </body>
 </html>
